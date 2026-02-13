@@ -1,11 +1,8 @@
-//
-//  CameraPreview.swift
-//  LingoLense
-//
-//  Created by SDC-USER on 11/02/26.
-//
+	//
+	//  CameraPreview.swift
+	//  LingoLense
+	//
 
-import Foundation
 import SwiftUI
 import AVFoundation
 
@@ -13,14 +10,26 @@ struct CameraPreview: UIViewRepresentable {
 	
 	let session: AVCaptureSession
 	
-	func makeUIView(context: Context) -> UIView {
-		let view = UIView()
-		let previewLayer = AVCaptureVideoPreviewLayer(session: session)
-		previewLayer.videoGravity = .resizeAspectFill
-		previewLayer.frame = UIScreen.main.bounds
-		view.layer.addSublayer(previewLayer)
+	func makeUIView(context: Context) -> PreviewView {
+		let view = PreviewView()
+		view.videoPreviewLayer.session = session
+		view.videoPreviewLayer.videoGravity = .resizeAspectFill
 		return view
 	}
 	
-	func updateUIView(_ uiView: UIView, context: Context) {}
+	func updateUIView(_ uiView: PreviewView, context: Context) {}
+}
+
+
+// MARK: - PreviewView backed by AVCaptureVideoPreviewLayer
+
+final class PreviewView: UIView {
+	
+	override class var layerClass: AnyClass {
+		AVCaptureVideoPreviewLayer.self
+	}
+	
+	var videoPreviewLayer: AVCaptureVideoPreviewLayer {
+		layer as! AVCaptureVideoPreviewLayer
+	}
 }

@@ -1,138 +1,75 @@
 import Foundation
 import Vision
-import CoreML
 import UIKit
 
 final class ObjectDetector {
-	private var visionModel: VNCoreMLModel?
-	private var request: VNCoreMLRequest?
+	
+	private var classificationRequest: VNClassifyImageRequest!
 	
 	private var lastDetectionTime = Date.distantPast
-	private let detectionInterval: TimeInterval = 0.25
+	private let detectionInterval: TimeInterval = 0.15
 	
-	private var detectionCounts: [String: Int] = [:]
-	private let requiredCount = 3
-	
-		// Callback closure
-	var onObjectFound: ((String) -> Void)?
+		// ✅ Send multiple predictions
+	var onPredictions: (([VNClassificationObservation]) -> Void)?
 	
 	init() {
-		setupModel()
+		setupClassifier()
 	}
 	
-	private func setupModel() {
-		do {
-			let config = MLModelConfiguration()
+	private func setupClassifier() {
+		
+		classificationRequest = VNClassifyImageRequest { [weak self] request, error in
 			
-				// ✅ CRITICAL FIX
-			config.computeUnits = .all
-			
-			let model = try yolov8s(configuration: config)
-			
-			visionModel = try VNCoreMLModel(for: model.model)
-			
-			request = VNCoreMLRequest(model: visionModel!) { [weak self] request, error in
-				
-				if let error = error {
-					print("❌ Vision error:", error)
-					return
-				}
-				
-				guard let results = request.results as? [VNRecognizedObjectObservation] else {
-					print("❌ No observations")
-					return
-				}
-				
-				print("Detections count:", results.count)
-				
-				self?.handleDetections(results)
+			if let error = error {
+				print("❌ Vision error:", error)
+				return
 			}
 			
-			request?.imageCropAndScaleOption = .scaleFit
+			guard let results = request.results as? [VNClassificationObservation] else {
+				return
+			}
 			
-			print("✅ Model loaded successfully")
-			
-		} catch {
-			print("❌ Failed to load YOLO model:", error)
+			self?.handleClassifications(results)
 		}
 	}
 	
 	func detect(from pixelBuffer: CVPixelBuffer) {
 		
 		let now = Date()
-		
 		guard now.timeIntervalSince(lastDetectionTime) > detectionInterval else {
 			return
 		}
-		
 		lastDetectionTime = now
 		
-		guard let request = request else { return }
+		let orientation = exifOrientationFromDeviceOrientation()
 		
 		let handler = VNImageRequestHandler(
 			cvPixelBuffer: pixelBuffer,
-			orientation: .right,
-			options: [:]
+			orientation: orientation
 		)
 		
-		try? handler.perform([request])
+		try? handler.perform([classificationRequest])
 	}
 	
-//	func detect(from pixelBuffer: CVPixelBuffer) {
-//		guard let request = request else {
-//			print("❌ Request is nil")
-//			return
-//		}
-//		
-//		print("Frame received for detection")
-//		
-//		let handler = VNImageRequestHandler(
-//			cvPixelBuffer: pixelBuffer,
-//			orientation: .right,
-//			options: [:]
-//		)
-//		
-//		do {
-//			try handler.perform([request])
-//		} catch {
-//			print("❌ Handler error:", error)
-//		}
-//	}
-	
-	private func handleDetections(_ observations: [VNRecognizedObjectObservation]) {
+	private func handleClassifications(_ results: [VNClassificationObservation]) {
 		
-		for observation in observations {
-			
-			guard let label = observation.labels.first else { continue }
-			
-			let name = label.identifier
-			let confidence = label.confidence
-			
-			guard confidence > 0.7 else { continue }
-			
-			detectionCounts[name, default: 0] += 1
-			
-			if detectionCounts[name] == requiredCount {
-				
-				DispatchQueue.main.async {
-					print("✅ Stable detection:", name)
-					self.onObjectFound?(name)
-				}
-			}
+			// ✅ Filter only meaningful results
+		let filtered = results
+			.filter { $0.confidence > 0.25 }
+			.prefix(5)
+		
+		DispatchQueue.main.async {
+			self.onPredictions?(Array(filtered))
 		}
 	}
 	
-//	private func handleDetections(_ observations: [VNRecognizedObjectObservation]) {
-//			// Find the best detection
-//		if let topObservation = observations.first,
-//		   let topLabel = topObservation.labels.first,
-//		   topLabel.confidence > 0.5 {
-//			
-//				// ⚠️ CRITICAL: Move to Main Thread for SwiftUI
-//			DispatchQueue.main.async {
-//				self.onObjectFound?(topLabel.identifier)
-//			}
-//		}
-//	}
-	
+	private func exifOrientationFromDeviceOrientation() -> CGImagePropertyOrientation {
+		
+		switch UIDevice.current.orientation {
+			case .portraitUpsideDown: return .left
+			case .landscapeLeft: return .upMirrored
+			case .landscapeRight: return .down
+			default: return .up
+		}
+	}
 }

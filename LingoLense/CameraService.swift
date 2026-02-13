@@ -2,14 +2,16 @@ import Foundation
 import AVFoundation
 import Combine
 
-	// 1. Add ObservableObject conformance here
 final class CameraService: NSObject, ObservableObject {
 	
 	let session = AVCaptureSession()
 	var frameHandler: ((CVPixelBuffer) -> Void)?
 	
 	private let videoDataOutput = AVCaptureVideoDataOutput()
-	private let videoQueue = DispatchQueue(label: "VideoDataOutputQueue")
+	private let videoQueue = DispatchQueue(
+		label: "VideoDataOutputQueue",
+		qos: .userInitiated
+	)
 	
 	override init() {
 		super.init()
@@ -17,11 +19,18 @@ final class CameraService: NSObject, ObservableObject {
 	}
 	
 	private func configureSession() {
+		
 		session.beginConfiguration()
-		session.sessionPreset = .vga640x480
+		
+			// ✅ Use high resolution for better Vision accuracy
+		session.sessionPreset = .high
 		
 		guard
-			let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+			let device = AVCaptureDevice.default(
+				.builtInWideAngleCamera,
+				for: .video,
+				position: .back
+			),
 			let input = try? AVCaptureDeviceInput(device: device),
 			session.canAddInput(input)
 		else {
@@ -33,15 +42,28 @@ final class CameraService: NSObject, ObservableObject {
 		session.addInput(input)
 		
 		if session.canAddOutput(videoDataOutput) {
+			
+				// Prevent frame backlog (important for real-time classification)
 			videoDataOutput.alwaysDiscardsLateVideoFrames = true
+			
+				// Explicit pixel format for Vision stability
+			videoDataOutput.videoSettings = [
+				kCVPixelBufferPixelFormatTypeKey as String:
+					Int(kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
+			]
+			
 			videoDataOutput.setSampleBufferDelegate(self, queue: videoQueue)
 			session.addOutput(videoDataOutput)
 			
-				// 2. Ensure the video orientation is correct for portrait
 			if let connection = videoDataOutput.connection(with: .video) {
 				connection.videoOrientation = .portrait
 				connection.isEnabled = true
 			}
+			
+		} else {
+			print("❌ Could not add video output")
+			session.commitConfiguration()
+			return
 		}
 		
 		session.commitConfiguration()
@@ -49,6 +71,7 @@ final class CameraService: NSObject, ObservableObject {
 	
 	func start() {
 		guard !session.isRunning else { return }
+		
 		DispatchQueue.global(qos: .userInitiated).async {
 			self.session.startRunning()
 		}
@@ -61,8 +84,15 @@ final class CameraService: NSObject, ObservableObject {
 }
 
 extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
-	func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-		guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+	
+	func captureOutput(_ output: AVCaptureOutput,
+					   didOutput sampleBuffer: CMSampleBuffer,
+					   from connection: AVCaptureConnection) {
+		
+		guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+			return
+		}
+		
 		frameHandler?(pixelBuffer)
 	}
 }
