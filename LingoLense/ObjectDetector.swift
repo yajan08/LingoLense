@@ -55,11 +55,10 @@ final class ObjectDetector {
 		try? handler.perform([classificationRequest])
 	}
 	
-	
 	private func handleClassifications(_ results: [VNClassificationObservation]) {
 		
 		let filtered = results
-			.filter { $0.confidence > 0.30 }
+			.filter { $0.confidence > 0.25 }
 			.prefix(5)
 		
 		DispatchQueue.main.async {

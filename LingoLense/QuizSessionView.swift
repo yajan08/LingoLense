@@ -9,6 +9,8 @@ import Foundation
 @available(iOS 26.0, *)
 struct QuizSessionView: View {
 	
+	@Environment(\.dismiss) private var dismiss
+	
 	let objects: [String]
 	
 	@State private var quizzes: [FoundationQuizGenerator.QuizResult] = []
@@ -161,14 +163,14 @@ private extension QuizSessionView {
 			Spacer()
 			
 			Button {
-				showCompletion = false
+				dismiss() // This will dismiss the fullScreenCover and return to ContentView
 			} label: {
 				
 				Text("Done")
 					.font(.headline)
 					.frame(maxWidth: .infinity)
 					.padding()
-					.background(Color.primary)
+					.background(Color.blue)
 					.foregroundColor(.white)
 					.cornerRadius(12)
 			}

@@ -153,7 +153,7 @@ private extension QuizCameraView {
 				
 				Text(currentQuiz.frenchWord.capitalized)
 					.font(.largeTitle.weight(.bold))
-					.foregroundStyle(.primary)
+					.foregroundStyle(.blue)
 			}
 			
 			Spacer()
@@ -235,7 +235,7 @@ private extension QuizCameraView {
 					Text("Next Word")
 						.frame(maxWidth: .infinity)
 						.padding()
-						.background(.primary)
+						.background(.blue)
 						.foregroundColor(.white)
 						.cornerRadius(12)
 				}
@@ -253,19 +253,17 @@ private extension QuizCameraView {
 // MARK: Answer Overlay
 //
 private extension QuizCameraView {
-	
 	var answerOverlay: some View {
 		VStack {
 			Spacer()
 			
 			VStack(spacing: 10) {
-				Text("Scan this object")
-					.font(.subheadline)
-					.foregroundStyle(.secondary)
 				
-				Text(currentQuiz.correctEnglish.capitalized)
-					.font(.system(size: 42, weight: .bold))
+				Text("\(currentQuiz.frenchWord.capitalized) = \(currentQuiz.correctEnglish.capitalized)")
+					.font(.system(size: 32, weight: .bold))
 					.multilineTextAlignment(.center)
+					.foregroundStyle(.primary)
+				
 			}
 			.padding(20)
 			.background(.ultraThinMaterial)
