@@ -1,10 +1,14 @@
 import Foundation
 import FoundationModels
+import SwiftUI
 
 @available(iOS 26.0, *)
 final class FoundationQuizGenerator {
 	
 	private let model = SystemLanguageModel.default
+	
+	@AppStorage("selected_language")
+	private var selectedLanguageRaw = AppLanguage.french.rawValue
 	
 	struct QuizResult: Identifiable {
 		let id = UUID()
@@ -36,17 +40,16 @@ final class FoundationQuizGenerator {
 		return results.shuffled()
 	}
 	
-	
 		// MARK: Translate single object
 	
 	private func translate(_ object: String) async -> QuizResult? {
 		
 		let prompt = """
-		Translate this everyday object to French.
+		Translate this everyday object to \(selectedLanguageRaw).
 		
 		Object: \(object)
 		
-		Return ONLY the French word.
+		Return ONLY the translated word.
 		"""
 		
 		do {

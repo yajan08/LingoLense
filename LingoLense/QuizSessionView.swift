@@ -1,3 +1,8 @@
+	//
+	//  QuizSessionView.swift
+	//  LingoLense
+	//
+
 import SwiftUI
 import Foundation
 
@@ -7,9 +12,11 @@ struct QuizSessionView: View {
 	let objects: [String]
 	
 	@State private var quizzes: [FoundationQuizGenerator.QuizResult] = []
-	@State private var currentIndex: Int = 0
 	@State private var score: Int = 0
-	@State private var loading: Bool = true
+	
+	@State private var loading = true
+	@State private var showCamera = false
+	@State private var showCompletion = false
 	
 	private let generator = FoundationQuizGenerator()
 	
@@ -26,47 +33,87 @@ struct QuizSessionView: View {
 				emptyView
 			}
 			
-			else if currentIndex >= quizzes.count {
+			else if showCompletion {
 				completionView
 			}
 			
 			else {
-				QuizQuestionCard(
-					quiz: quizzes[currentIndex],
-					questionNumber: currentIndex + 1,
-					totalQuestions: quizzes.count
-				) { correct in
-					
-					handleAnswer(correct)
-				}
-				.id(currentIndex) // forces fresh view every question
-				.transition(.opacity)
+				startView
 			}
 		}
-		.animation(.easeInOut(duration: 0.25), value: currentIndex)
-		.padding(24)
 		.task {
 			await loadQuiz()
 		}
+		.fullScreenCover(isPresented: $showCamera) {
+			
+			QuizCameraView(quizzes: quizzes) { finalScore in
+				
+				score = finalScore
+				showCompletion = true
+				showCamera = false
+			}
+		}
 	}
 }
+
+//
+// MARK: Start View
+//
+
+private extension QuizSessionView {
+	
+	var startView: some View {
+		
+		VStack(spacing: 24) {
+			
+			Spacer()
+			
+			Image(systemName: "camera.viewfinder")
+				.font(.system(size: 56))
+				.foregroundColor(.secondary)
+			
+			Text("Object Quiz")
+				.font(.title.bold())
+			
+			Text("\(quizzes.count) objects")
+				.font(.subheadline)
+				.foregroundColor(.secondary)
+			
+			Spacer()
+			
+			Button {
+				showCamera = true
+			} label: {
+				
+				Text("Start")
+					.font(.headline)
+					.frame(maxWidth: .infinity)
+					.padding()
+					.background(Color.blue)
+					.foregroundColor(.white)
+					.cornerRadius(12)
+			}
+		}
+		.padding(24)
+	}
+}
+
+//
+// MARK: Loading
+//
 
 private extension QuizSessionView {
 	
 	var loadingView: some View {
 		
-		VStack(spacing: 18) {
-			
-			ProgressView()
-				.scaleEffect(1.4)
-			
-			Text("Preparing quiz...")
-				.font(.headline)
-				.foregroundColor(.secondary)
-		}
-		.frame(maxWidth: .infinity, maxHeight: .infinity)
+		ProgressView("Preparing Quiz")
+			.frame(maxWidth: .infinity, maxHeight: .infinity)
 	}
 }
+
+//
+// MARK: Empty
+//
 
 private extension QuizSessionView {
 	
@@ -74,19 +121,24 @@ private extension QuizSessionView {
 		
 		VStack(spacing: 12) {
 			
-			Image(systemName: "exclamationmark.circle")
+			Image(systemName: "tray")
 				.font(.system(size: 40))
 				.foregroundColor(.secondary)
 			
 			Text("No quiz available")
 				.font(.headline)
 			
-			Text("Try scanning more objects")
+			Text("Scan objects first")
+				.font(.subheadline)
 				.foregroundColor(.secondary)
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity)
 	}
 }
+
+//
+// MARK: Completion
+//
 
 private extension QuizSessionView {
 	
@@ -96,100 +148,78 @@ private extension QuizSessionView {
 			
 			Spacer()
 			
-			Image(systemName: completionIcon)
-				.font(.system(size: 60))
-				.foregroundColor(completionColor)
+			Image(systemName: scoreIcon)
+				.font(.system(size: 56))
+				.foregroundColor(scoreColor)
 			
 			Text("Quiz Complete")
-				.font(.largeTitle.bold())
+				.font(.title.bold())
 			
 			Text("\(score) / \(quizzes.count)")
-				.font(.system(size: 48, weight: .bold))
-			
-			Text(scoreText)
-				.font(.headline)
-				.foregroundColor(.secondary)
+				.font(.system(size: 44, weight: .bold))
 			
 			Spacer()
+			
+			Button {
+				showCompletion = false
+			} label: {
+				
+				Text("Done")
+					.font(.headline)
+					.frame(maxWidth: .infinity)
+					.padding()
+					.background(Color.primary)
+					.foregroundColor(.white)
+					.cornerRadius(12)
+			}
 		}
-		.frame(maxWidth: .infinity)
-	}
-	
-	
-	var scoreText: String {
-		
-		guard quizzes.count > 0 else { return "" }
-		
-		let percent = Double(score) / Double(quizzes.count)
-		
-		switch percent {
-				
-			case 1.0:
-				return "Perfect"
-				
-			case 0.7...:
-				return "Great job"
-				
-			case 0.4...:
-				return "Good effort"
-				
-			default:
-				return "Keep practicing"
-		}
-	}
-	
-	
-	var completionIcon: String {
-		
-		guard quizzes.count > 0 else { return "circle" }
-		
-		let percent = Double(score) / Double(quizzes.count)
-		
-		switch percent {
-				
-			case 1.0:
-				return "star.fill"
-				
-			case 0.7...:
-				return "checkmark.circle.fill"
-				
-			default:
-				return "circle"
-		}
-	}
-	
-	
-	var completionColor: Color {
-		
-		guard quizzes.count > 0 else { return .secondary }
-		
-		let percent = Double(score) / Double(quizzes.count)
-		
-		switch percent {
-				
-			case 1.0:
-				return .yellow
-				
-			case 0.7...:
-				return .green
-				
-			default:
-				return .secondary
-		}
+		.padding(24)
 	}
 }
 
+//
+// MARK: Score Helpers
+//
+
 private extension QuizSessionView {
 	
-	func handleAnswer(_ correct: Bool) {
-		
-		if correct {
-			score += 1
-		}
-		
-		currentIndex += 1
+	var scorePercent: Double {
+		guard quizzes.count > 0 else { return 0 }
+		return Double(score) / Double(quizzes.count)
 	}
 	
+	var scoreIcon: String {
+		
+		if scorePercent == 1.0 {
+			return "star.fill"
+		}
+		
+		if scorePercent >= 0.7 {
+			return "checkmark.circle.fill"
+		}
+		
+		return "circle"
+	}
+	
+	var scoreColor: Color {
+		
+		if scorePercent == 1.0 {
+			return .yellow
+		}
+		
+		if scorePercent >= 0.7 {
+			return .green
+		}
+		
+		return .secondary
+	}
+}
+
+//
+// MARK: Load Quiz
+//
+
+private extension QuizSessionView {
 	
 	func loadQuiz() async {
 		
@@ -200,120 +230,8 @@ private extension QuizSessionView {
 		await MainActor.run {
 			
 			quizzes = result
-			currentIndex = 0
 			score = 0
 			loading = false
 		}
 	}
 }
-
-
-	//import SwiftUI
-//import Foundation
-//
-//@available(iOS 26.0, *)
-//struct QuizSessionView: View {
-//	
-//	let objects: [String]
-//	
-//	@State private var quizzes: [FoundationQuizGenerator.QuizResult] = []
-//	@State private var currentIndex = 0
-//	@State private var score = 0
-//	@State private var loading = true
-//	
-//	private let generator = FoundationQuizGenerator()
-//	
-//	
-//	var body: some View {
-//		
-//		Group {
-//			
-//			if loading {
-//				loadingView
-//			}
-//			
-//			else if currentIndex >= quizzes.count {
-//				completionView
-//			}
-//			
-//			else {
-//				QuizQuestionCard(
-//					quiz: quizzes[currentIndex],
-//					allObjects: objects,
-//					questionNumber: currentIndex + 1,
-//					totalQuestions: quizzes.count
-//				) { correct in
-//					
-//					if correct {
-//						score += 1
-//					}
-//					
-//					withAnimation(.easeInOut(duration: 0.25)) {
-//						currentIndex += 1
-//					}
-//				}
-//				.id(currentIndex) // ✅ CRITICAL FIX
-//			}
-//		}
-//		.padding(24)
-//		.task {
-//			await loadQuiz()
-//		}
-//	}
-//}
-//private extension QuizSessionView {
-//	
-//	var loadingView: some View {
-//		
-//		VStack(spacing: 16) {
-//			
-//			ProgressView()
-//				.scaleEffect(1.4)
-//			
-//			Text("Preparing quiz...")
-//				.foregroundColor(.secondary)
-//		}
-//	}
-//}
-//private extension QuizSessionView {
-//	
-//	var completionView: some View {
-//		
-//		VStack(spacing: 20) {
-//			
-//			Text("Quiz Complete")
-//				.font(.largeTitle.bold())
-//			
-//			Text("\(score) / \(quizzes.count)")
-//				.font(.system(size: 42, weight: .bold))
-//			
-//			Text(scoreText)
-//				.foregroundColor(.secondary)
-//		}
-//	}
-//	
-//	
-//	var scoreText: String {
-//		
-//		let percent = Double(score) / Double(quizzes.count)
-//		
-//		switch percent {
-//			case 1.0: return "Perfect"
-//			case 0.7...: return "Great job"
-//			case 0.4...: return "Good effort"
-//			default: return "Keep practicing"
-//		}
-//	}
-//}
-//private extension QuizSessionView {
-//	
-//	func loadQuiz() async {
-//		
-//		quizzes = await generator.generateQuizSession(from: objects)
-//		
-//		await MainActor.run {
-//			loading = false
-//		}
-//	}
-//}
-//
