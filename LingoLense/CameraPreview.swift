@@ -1,8 +1,3 @@
-	//
-	//  CameraPreview.swift
-	//  LingoLense
-	//
-
 import SwiftUI
 import AVFoundation
 
@@ -19,7 +14,6 @@ struct CameraPreview: UIViewRepresentable {
 	
 	func updateUIView(_ uiView: PreviewView, context: Context) {}
 }
-
 
 // MARK: - PreviewView backed by AVCaptureVideoPreviewLayer
 

@@ -45,9 +45,7 @@ final class FoundationQuizGenerator {
 	private func translate(_ object: String) async -> QuizResult? {
 		
 		let prompt = """
-		Translate this everyday object to \(selectedLanguageRaw).
-		
-		Object: \(object)
+		Translate '\(object)' to \(selectedLanguageRaw).
 		
 		Return ONLY the translated word.
 		"""
