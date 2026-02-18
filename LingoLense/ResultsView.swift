@@ -14,39 +14,45 @@ struct ResultsView: View {
 	@Environment(\.dismiss) private var dismiss
 	
 	@FocusState private var isTextFieldFocused: Bool
+	
 		// MARK: - State
 	
 	@State private var filteredObjects: [String] = []
+	@State private var manualObjects: [String] = []   // ✅ manual objects tracked separately
 	@State private var selectedObjects: Set<String> = []
 	@State private var isFiltering = true
-	@State private var navigateToResults = false
 	@State private var navigateToQuiz = false
 	@State private var newObjectText: String = ""
 	@State private var showHelp = false
 	
-		// Combined list: ensures unique names and sorted order
+	
+		/// Combined list with manual objects FIRST (instant priority)
 	private var allObjects: [String] {
-		Array(Set(filteredObjects + [newObjectText].filter { !$0.isEmpty })).sorted()
+		manualObjects + filteredObjects.filter { !manualObjects.contains($0) }
 	}
+	
 	
 		// MARK: - Body
 	
 	var body: some View {
 		VStack(spacing: 0) {
+			
 			header
 			
 			ScrollView {
 				LazyVStack(spacing: 12) {
+					
 					addObjectRow
 						.padding(.bottom, 8)
 					
 					if isFiltering {
 						loadingShimmer
-					} else if filteredObjects.isEmpty && newObjectText.isEmpty {
+					}
+					else if allObjects.isEmpty {
 						emptyStateContent
-					} else {
-							// Display the filtered list
-						ForEach(filteredObjects, id: \.self) { object in
+					}
+					else {
+						ForEach(allObjects, id: \.self) { object in
 							selectableRow(object)
 						}
 					}
@@ -59,17 +65,20 @@ struct ResultsView: View {
 		.navigationTitle("Review Items")
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar {
+			
 			ToolbarItem(placement: .topBarTrailing) {
+				
 				Button {
 					showHelp = true
 				} label: {
-					Image(systemName: "questionmark.circle.fill")
+					Image(systemName: "info") // ✅ native iOS info icon
 						.symbolRenderingMode(.hierarchical)
+						.font(.title3)
 				}
+				.buttonStyle(.borderless) // ✅ native feel
 			}
 		}
 		.navigationDestination(isPresented: $navigateToQuiz) {
-				// Defer translation to the QuizSessionView to keep this view snappy
 			QuizSessionView(objects: Array(selectedObjects))
 		}
 		.sheet(isPresented: $showHelp) {
@@ -81,16 +90,19 @@ struct ResultsView: View {
 	}
 }
 
+	//
 	// MARK: - UI Components
+	//
 
 private extension ResultsView {
 	
 	var header: some View {
 		VStack(alignment: .leading, spacing: 6) {
-			Text("Detected Objects")
+			
+			Text("Review Detected Items")
 				.font(.system(.largeTitle, design: .rounded).bold())
 			
-			Text("Confirm the items you want to hunt for.")
+			Text("Confirm or add objects you want to include in your scavenger hunt.")
 				.font(.subheadline)
 				.foregroundColor(.secondary)
 		}
@@ -98,16 +110,24 @@ private extension ResultsView {
 		.padding()
 	}
 	
+	
 	var loadingShimmer: some View {
 		VStack(spacing: 12) {
 			ForEach(0..<6, id: \.self) { _ in
+				
 				RoundedRectangle(cornerRadius: 14)
 					.fill(Color.gray.opacity(0.15))
 					.frame(height: 60)
 					.overlay(
 						HStack {
-							Circle().fill(Color.gray.opacity(0.2)).frame(width: 24)
-							Rectangle().fill(Color.gray.opacity(0.2)).frame(width: 120, height: 12)
+							Circle()
+								.fill(Color.gray.opacity(0.2))
+								.frame(width: 24)
+							
+							Rectangle()
+								.fill(Color.gray.opacity(0.2))
+								.frame(width: 120, height: 12)
+							
 							Spacer()
 						}
 							.padding(.horizontal)
@@ -119,57 +139,82 @@ private extension ResultsView {
 	
 	var addObjectRow: some View {
 		HStack(spacing: 12) {
+			
+				// Main Input Field
 			HStack {
 				Image(systemName: "plus.circle.fill")
 					.foregroundColor(.blue)
+					// Subtle "hop" when text is first entered (iOS 17+)
+					.symbolEffect(.bounce, value: !newObjectText.isEmpty)
 				
 				TextField("Add object manually...", text: $newObjectText)
 					.submitLabel(.done)
-					.onSubmit { addManualObject() }
+					.focused($isTextFieldFocused)
+					.onSubmit { addManualObjectInstant() }
 			}
 			.padding()
-			.background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
-				// Explicitly trigger focus when the background area is tapped
+			.background(
+				Color(.tertiarySystemBackground),
+				in: RoundedRectangle(cornerRadius: 14)
+			)
 			.onTapGesture {
 				isTextFieldFocused = true
 			}
 			
+				// Animated "Add" Button
 			if !newObjectText.isEmpty {
-				Button("Add") { addManualObject() }
-					.fontWeight(.bold)
-				
+				Button("Add") {
+					addManualObjectInstant()
+				}
+				.fontWeight(.bold)
+					// The transition defines HOW it enters/leaves
+				.transition(.move(edge: .trailing).combined(with: .opacity))
 			}
 		}
+			// The animation defines the SPEED and FEEL of the transition
+		.animation(.spring(response: 0.35, dampingFraction: 0.8), value: newObjectText.isEmpty)
 	}
 	
 	func selectableRow(_ object: String) -> some View {
+		
 		let isSelected = selectedObjects.contains(object)
 		
 		return Button {
+			
 			toggle(object)
+			
 		} label: {
+			
 			HStack(spacing: 16) {
+				
 				Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
 					.font(.title2)
 					.foregroundColor(isSelected ? .green : .secondary)
 				
 				Text(object.capitalized)
 					.font(.body.weight(.medium))
-					.foregroundColor(.primary)
 				
 				Spacer()
 			}
 			.padding()
-			.background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+			.background(
+				Color(.secondarySystemBackground),
+				in: RoundedRectangle(cornerRadius: 14)
+			)
 		}
 		.buttonStyle(.plain)
 	}
 	
+	
 	var startButton: some View {
+		
 		Button {
+			
 			UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 			navigateToQuiz = true
+			
 		} label: {
+			
 			Text("Start Scavenger Hunt")
 				.font(.headline)
 				.frame(maxWidth: .infinity)
@@ -183,168 +228,136 @@ private extension ResultsView {
 		.background(.ultraThinMaterial)
 	}
 	
+	
 	var emptyStateContent: some View {
+		
 		VStack(spacing: 16) {
+			
 			Image(systemName: "viewfinder.circle")
 				.font(.system(size: 60))
 				.foregroundColor(.secondary)
 				.padding(.top, 40)
 			
-			Text("No Specific Objects Found").font(.headline)
-			Text("Try scanning again or add items manually.").font(.subheadline).foregroundColor(.secondary)
+			Text("No objects yet")
+				.font(.headline)
 			
-			Button("Go Back") { dismiss() }.font(.headline).padding(.top, 10)
+			Text("Scan again or add objects manually.")
+				.font(.subheadline)
+				.foregroundColor(.secondary)
+			
+			Button("Go Back") {
+				dismiss()
+			}
+			.font(.headline)
+			.padding(.top, 10)
 		}
 	}
 }
 
+	//
 	// MARK: - Logic
+	//
 
 private extension ResultsView {
 	
+	
 	func performFiltering() {
+		
 		guard !rawDetectedLabels.isEmpty else {
 			isFiltering = false
 			return
 		}
 		
 		Task(priority: .userInitiated) {
+			
 			let cleaned = await aiService.filterObjects(from: rawDetectedLabels)
 			
 			await MainActor.run {
-				withAnimation(.spring()) {
-						// 1. Sanitize for duplicates/blanks first
-					let sanitized = cleaned
-						.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-						.filter { !$0.isEmpty }
-					
-						// 2. Limit to a maximum of 10 AI-detected results
-					let limitedResults = Array(Set(sanitized)).sorted().prefix(10)
-					
-						// 3. Update state
-					self.filteredObjects = Array(limitedResults)
-					self.selectedObjects = Set(limitedResults)
-					self.isFiltering = false
-				}
+				
+				let sanitized = cleaned
+					.map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
+					.filter { !$0.isEmpty }
+				
+				filteredObjects = sanitized
+				selectedObjects = Set(sanitized)
+				isFiltering = false
 			}
 		}
 	}
 	
-//	func performFiltering() {
-//		guard !rawDetectedLabels.isEmpty else {
-//			isFiltering = false
-//			return
-//		}
-//		
-//			// Use .userInitiated or .utility to stay off the high-priority UI track
-//		Task(priority: .userInitiated) {
-//			let cleaned = await aiService.filterObjects(from: rawDetectedLabels)
-//			
-//				// ONLY jump back to MainActor for the final UI update
-//			await MainActor.run {
-//				withAnimation(.spring()) {
-//					self.filteredObjects = cleaned.sorted()
-//					self.selectedObjects = Set(cleaned)
-//					self.isFiltering = false
-//				}
-//			}
-//		}
-//	}
+	
+		/// ZERO latency manual add — instant state update
+	func addManualObjectInstant() {
+		
+		let text = newObjectText
+			.trimmingCharacters(in: .whitespacesAndNewlines)
+			.lowercased()
+		
+		guard !text.isEmpty else { return }
+		
+		isTextFieldFocused = false
+		
+			// instant insertion at top
+		if !manualObjects.contains(text) {
+			manualObjects.insert(text, at: 0)
+		}
+		
+		selectedObjects.insert(text)
+		
+		newObjectText = ""
+		
+		UIImpactFeedbackGenerator(style: .light).impactOccurred()
+	}
+	
 	
 	func toggle(_ object: String) {
+		
 		UIImpactFeedbackGenerator(style: .light).impactOccurred()
+		
 		if selectedObjects.contains(object) {
 			selectedObjects.remove(object)
 		} else {
 			selectedObjects.insert(object)
 		}
 	}
-	
-	func addManualObject() {
-		let text = newObjectText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-		guard !text.isEmpty else { return }
-		
-		isTextFieldFocused = false
-		
-		if !filteredObjects.contains(text) {
-			withAnimation(.spring()) {
-				filteredObjects.append(text) // Adds to the list regardless of the 10-count limit
-				selectedObjects.insert(text)
-			}
-		}
-		newObjectText = ""
-	}}
+}
 
-	// MARK: - Instructions Subcomponent
+	//
+	// MARK: - Instructions Sheet
+	//
 
 struct ResultsInstructionsSheet: View {
-	@Environment(\.dismiss) var dismiss
+	
+	@Environment(\.dismiss) private var dismiss
 	
 	var body: some View {
+		
 		NavigationStack {
+			
 			List {
-				Section("Curating Your Session") {
-					InstructionRow(
-						icon: "checklist.checked",
-						color: .green,
-						title: "Refine Your List",
-						detail: "Review the AI-detected labels and deselect any items that aren't actually in your surroundings."
-					)
-					InstructionRow(
-						icon: "plus.viewfinder",
-						color: .blue,
-						title: "Add Missing Items",
-						detail: "If the scanner missed an object, simply type its name in the 'Add manually' field to include it."
-					)
-					InstructionRow(
-						icon: "hand.tap",
-						color: .purple,
-						title: "Confirm Selection",
-						detail: "Ensure you only select objects you can physically reach, as you will need to find them again shortly."
-					)
-				}
 				
-				Section("Next Steps") {
-					InstructionRow(
-						icon: "flag.checkered.2.crossed",
-						color: .red,
-						title: "Begin the Hunt",
-						detail: "Once satisfied with your list, tap 'Start Scavenger Hunt' to translate these items and begin the game!"
-					)
+				Section("Review your objects") {
+					
+					Label("Tap items to include or exclude them.", systemImage: "checkmark.circle")
+					
+					Label("Add missing objects that were not detected manually.", systemImage: "plus.circle")
+					
+					Label("Only selected items will appear in your scavenger hunt.", systemImage: "target")
 				}
 			}
-			.navigationTitle("Review Guide")
+			.navigationTitle("About Reviewing")
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
-				ToolbarItem(placement: .cancellationAction) {
+				
+				ToolbarItem(placement: .confirmationAction) {
+					
 					Button {
 						dismiss()
-					} label: {
-						Image(systemName: "xmark.circle.fill")
-							.symbolRenderingMode(.hierarchical)
-							.foregroundStyle(.secondary)
-							.font(.title3)
+					} label : {
+						Image(systemName: "xmark")
 					}
 				}
 			}
 		}
 	}
 }
-	//	func performFiltering() {
-	//		guard !rawDetectedLabels.isEmpty else {
-	//			isFiltering = false
-	//			return
-	//		}
-	//		
-	//		Task {
-	//			let cleaned = await aiService.filterObjects(from: rawDetectedLabels)
-	//			
-	//			await MainActor.run {
-	//				withAnimation(.spring()) {
-	//					self.filteredObjects = cleaned.sorted()
-	//					self.selectedObjects = Set(cleaned)
-	//					self.isFiltering = false
-	//				}
-	//			}
-	//		}
-	//	}

@@ -110,7 +110,7 @@ struct QuizCameraView: View {
 				
 				ToolbarItem(placement: .topBarTrailing) {
 					Button { showHelp = true } label: {
-						Image(systemName: "questionmark.circle.fill")
+						Image(systemName: "questionmark")
 							.font(.title3)
 							.symbolRenderingMode(.hierarchical)
 					}
@@ -377,7 +377,11 @@ struct InstructionsSheet: View {
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 				ToolbarItem(placement: .confirmationAction) {
-					Button("Got it") { dismiss() }.fontWeight(.bold)
+					Button {
+						dismiss()
+					} label : {
+						Image(systemName: "xmark")
+					}
 				}
 			}
 		}

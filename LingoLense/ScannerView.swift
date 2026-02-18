@@ -35,7 +35,7 @@ struct ScannerView: View {
 			.toolbar {
 				ToolbarItem(placement: .topBarTrailing) {
 					Button { showHelp = true } label: {
-						Image(systemName: "questionmark.circle.fill")
+						Image(systemName: "questionmark")
 							.symbolRenderingMode(.hierarchical)
 					}
 				}
@@ -192,10 +192,10 @@ struct ScannerInstructionsSheet: View {
 					Button {
 						dismiss()
 					} label: {
-						Image(systemName: "xmark.circle.fill")
-							.symbolRenderingMode(.hierarchical)
-							.foregroundStyle(.secondary)
-							.font(.title3)
+						Image(systemName: "xmark")
+//							.symbolRenderingMode(.hierarchical)
+//							.foregroundStyle(.secondary)
+//							.font(.title3)
 					}
 				}
 			}

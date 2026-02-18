@@ -58,7 +58,7 @@ private extension QuizSessionView {
 				.font(.system(size: 56))
 				.foregroundColor(.secondary)
 			
-			Text("Object Quiz")
+			Text("Scavenger Hunt")
 				.font(.title.bold())
 			
 			Text("\(quizzes.count) objects to find")
@@ -89,7 +89,7 @@ private extension QuizSessionView {
 		VStack(spacing: 16) {
 			ProgressView()
 				.controlSize(.large)
-			Text("Preparing Your Quiz...")
+			Text("Preparing Your Hunt...")
 				.font(.headline)
 				.foregroundStyle(.secondary)
 		}
@@ -105,7 +105,7 @@ private extension QuizSessionView {
 				.font(.system(size: 40))
 				.foregroundColor(.secondary)
 			
-			Text("No quiz available")
+			Text("No hunt available")
 				.font(.headline)
 			
 			Text("Scan objects first to build a session.")
@@ -126,7 +126,7 @@ private extension QuizSessionView {
 				.font(.system(size: 56))
 				.foregroundColor(scoreColor)
 			
-			Text("Quiz Complete")
+			Text("Hunt Complete")
 				.font(.title.bold())
 			
 			VStack(spacing: 4) {
