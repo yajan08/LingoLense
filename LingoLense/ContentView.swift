@@ -1,3 +1,4 @@
+
 import SwiftUI
 
 	/// The landing page for LingoLens, designed for the Swift Student Challenge.
@@ -27,7 +28,7 @@ struct ContentView: View {
 						
 						instructionsSection
 						
-						securityPromise
+						privacyStatement
 						
 							// Extra padding to ensure content clears the floating button
 						Color.clear.frame(height: 100)
@@ -48,9 +49,9 @@ struct ContentView: View {
 
 private extension ContentView {
 	
-		/// A subtle description that sits right under the large navigation title
+		/// A subtle description under the navigation title
 	var descriptionHeader: some View {
-		Text("Transform your surroundings into a language learning playground.")
+		Text("Turn everyday surroundings into a playful language learning experience.")
 			.font(.title3)
 			.fontWeight(.medium)
 			.foregroundColor(.secondary)
@@ -58,9 +59,10 @@ private extension ContentView {
 			.padding(.top, -10)
 	}
 	
+		/// Language selection menu
 	var languagePicker: some View {
 		Menu {
-			Picker("Select Language", selection: $selectedLanguageRaw) {
+			Picker("Choose a language", selection: $selectedLanguageRaw) {
 				ForEach(AppLanguage.allCases) { language in
 					Text("\(language.flag) \(language.displayName)")
 						.tag(language.rawValue)
@@ -87,7 +89,7 @@ private extension ContentView {
 		}
 	}
 	
-		// MARK: - Refined Instructions Section
+		// MARK: - Learning Journey Section
 	
 	var instructionsSection: some View {
 		VStack(alignment: .leading, spacing: 20) {
@@ -97,30 +99,32 @@ private extension ContentView {
 				.padding(.leading, 4)
 			
 			VStack(spacing: 0) {
-				stepRow(
-					icon: "camera.aperture",
-					color: .blue,
-					title: "Explore & Discover",
-					text: "Wander through your space and scan everyday objects. Our on-device AI identifies items in real-time."
-				)
-				
-				Divider().padding(.leading, 76)
-				
-				stepRow(
-					icon: "sparkles.rectangle.stack",
-					color: .purple,
-					title: "Curate Vocabulary",
-					text: "Apple Intelligence filters your scan to keep only useful vocabulary. Choose the words you want to master."
-				)
-				
-				Divider().padding(.leading, 76)
-				
-				stepRow(
-					icon: "target",
-					color: .orange,
-					title: "The Scavenger Hunt",
-					text: "Test your memory by finding those same objects again—but this time, we'll only give you the name in \(selectedLanguage.displayName)."
-				)
+				VStack(spacing: 0) {
+					stepRow(
+						icon: "camera.viewfinder",
+						color: .blue,
+						title: "Scan Your Space",
+						text: "Explore your room and capture everyday objects using on-device AI."
+					)
+					
+					Divider().padding(.leading, 72)
+					
+					stepRow(
+						icon: "checklist",
+						color: .green,
+						title: "Build Your List",
+						text: "Review detected items, add your own, and choose the words you want to master."
+					)
+					
+					Divider().padding(.leading, 72)
+					
+					stepRow(
+						icon: "flag.checkered.2.crossed",
+						color: .red,
+						title: "The Scavenger Hunt",
+						text: "Test your memory by finding those same objects using only their \(selectedLanguage.displayName) names."
+					)
+				}
 			}
 			.background(Color(.secondarySystemGroupedBackground))
 			.clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -128,8 +132,7 @@ private extension ContentView {
 		}
 	}
 	
-		// MARK: - Refined Step Row logic
-	
+		/// Single instruction row
 	func stepRow(icon: String, color: Color, title: String, text: String) -> some View {
 		HStack(spacing: 16) {
 			ZStack {
@@ -159,8 +162,10 @@ private extension ContentView {
 		.padding(.vertical, 20)
 		.padding(.horizontal, 16)
 	}
-		/// A more personal security statement
-	var securityPromise: some View {
+	
+		// MARK: - Privacy Statement
+	
+	var privacyStatement: some View {
 		VStack(spacing: 12) {
 			Image(systemName: "lock.shield.fill")
 				.font(.title)
@@ -170,7 +175,7 @@ private extension ContentView {
 				Text("Your Privacy, My Priority")
 					.font(.headline)
 				
-				Text("All object recognition happens locally on your device. I never collect your images or data—what you scan stays yours.")
+				Text("All the magic happens directly on your device. We never collect images or data—what you scan stays with you.")
 					.font(.footnote)
 					.foregroundColor(.secondary)
 					.multilineTextAlignment(.center)
@@ -179,7 +184,9 @@ private extension ContentView {
 		}
 		.padding(.vertical, 20)
 	}
-		/// Liquid Glass Floating Button
+	
+		// MARK: - Floating Start Button
+	
 	var floatingStartButton: some View {
 		NavigationLink {
 			ScannerView()
@@ -196,11 +203,11 @@ private extension ContentView {
 			.padding(.vertical, 18)
 			.background {
 				ZStack {
-						// The "Liquid" base
+						// "Liquid" base
 					Capsule()
 						.fill(Color.blue.gradient)
 					
-						// The "Glass" shine
+						// Glass shine
 					Capsule()
 						.strokeBorder(.white.opacity(0.2), lineWidth: 1)
 				}

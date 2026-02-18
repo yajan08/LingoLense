@@ -56,7 +56,7 @@ final class CameraService: NSObject, ObservableObject {
 			session.addOutput(videoDataOutput)
 			
 			if let connection = videoDataOutput.connection(with: .video) {
-				connection.videoOrientation = .portrait
+				connection.videoRotationAngle = 90.0
 				connection.isEnabled = true
 			}
 			
@@ -89,10 +89,27 @@ extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
 					   didOutput sampleBuffer: CMSampleBuffer,
 					   from connection: AVCaptureConnection) {
 		
-		guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+			// 1. Only process if a handler exists
+		guard let frameHandler = frameHandler,
+			  let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
 			return
 		}
 		
-		frameHandler?(pixelBuffer)
+			// 2. IMPORTANT: Offload the handler to the background queue
+			// This prevents the camera from waiting for the UI/Vision to finish.
+		videoQueue.async {
+			frameHandler(pixelBuffer)
+		}
 	}
+	
+//	func captureOutput(_ output: AVCaptureOutput,
+//					   didOutput sampleBuffer: CMSampleBuffer,
+//					   from connection: AVCaptureConnection) {
+//		
+//		guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+//			return
+//		}
+//		
+//		frameHandler?(pixelBuffer)
+//	}
 }

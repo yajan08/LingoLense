@@ -11,7 +11,6 @@ final class ObjectDetector {
 	
 	var onPredictions: (([VNClassificationObservation]) -> Void)?
 	
-	
 	init() {
 		setupClassifier()
 	}

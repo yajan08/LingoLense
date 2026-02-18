@@ -1,8 +1,3 @@
-	//
-	//  QuizSessionView.swift
-	//  LingoLense
-	//
-
 import SwiftUI
 import Foundation
 
@@ -13,32 +8,28 @@ struct QuizSessionView: View {
 	
 	let objects: [String]
 	
-	@State private var quizzes: [FoundationQuizGenerator.QuizResult] = []
+		// 1. Update the type to the unified FoundationAIService result
+	@State private var quizzes: [FoundationAIService.QuizResult] = []
 	@State private var score: Int = 0
 	
 	@State private var loading = true
 	@State private var showCamera = false
 	@State private var showCompletion = false
 	
-	private let generator = FoundationQuizGenerator()
-	
+		// 2. Use the unified FoundationAIService
+	private let aiService = FoundationAIService()
 	
 	var body: some View {
-		
 		Group {
-			
 			if loading {
 				loadingView
 			}
-			
 			else if quizzes.isEmpty {
 				emptyView
 			}
-			
 			else if showCompletion {
 				completionView
 			}
-			
 			else {
 				startView
 			}
@@ -47,9 +38,8 @@ struct QuizSessionView: View {
 			await loadQuiz()
 		}
 		.fullScreenCover(isPresented: $showCamera) {
-			
+				// 3. Quizzes now correctly match the expected type in QuizCameraView
 			QuizCameraView(quizzes: quizzes) { finalScore in
-				
 				score = finalScore
 				showCompletion = true
 				showCamera = false
@@ -58,16 +48,10 @@ struct QuizSessionView: View {
 	}
 }
 
-//
-// MARK: Start View
-//
-
+	// MARK: - Start View
 private extension QuizSessionView {
-	
 	var startView: some View {
-		
 		VStack(spacing: 24) {
-			
 			Spacer()
 			
 			Image(systemName: "camera.viewfinder")
@@ -77,7 +61,7 @@ private extension QuizSessionView {
 			Text("Object Quiz")
 				.font(.title.bold())
 			
-			Text("\(quizzes.count) objects")
+			Text("\(quizzes.count) objects to find")
 				.font(.subheadline)
 				.foregroundColor(.secondary)
 			
@@ -86,7 +70,6 @@ private extension QuizSessionView {
 			Button {
 				showCamera = true
 			} label: {
-				
 				Text("Start")
 					.font(.headline)
 					.frame(maxWidth: .infinity)
@@ -100,29 +83,24 @@ private extension QuizSessionView {
 	}
 }
 
-//
-// MARK: Loading
-//
-
+	// MARK: - Loading View
 private extension QuizSessionView {
-	
 	var loadingView: some View {
-		
-		ProgressView("Preparing Quiz")
-			.frame(maxWidth: .infinity, maxHeight: .infinity)
+		VStack(spacing: 16) {
+			ProgressView()
+				.controlSize(.large)
+			Text("Preparing Your Quiz...")
+				.font(.headline)
+				.foregroundStyle(.secondary)
+		}
+		.frame(maxWidth: .infinity, maxHeight: .infinity)
 	}
 }
 
-//
-// MARK: Empty
-//
-
+	// MARK: - Empty View
 private extension QuizSessionView {
-	
 	var emptyView: some View {
-		
 		VStack(spacing: 12) {
-			
 			Image(systemName: "tray")
 				.font(.system(size: 40))
 				.foregroundColor(.secondary)
@@ -130,7 +108,7 @@ private extension QuizSessionView {
 			Text("No quiz available")
 				.font(.headline)
 			
-			Text("Scan objects first")
+			Text("Scan objects first to build a session.")
 				.font(.subheadline)
 				.foregroundColor(.secondary)
 		}
@@ -138,16 +116,10 @@ private extension QuizSessionView {
 	}
 }
 
-//
-// MARK: Completion
-//
-
+	// MARK: - Completion View
 private extension QuizSessionView {
-	
 	var completionView: some View {
-		
 		VStack(spacing: 24) {
-			
 			Spacer()
 			
 			Image(systemName: scoreIcon)
@@ -157,15 +129,20 @@ private extension QuizSessionView {
 			Text("Quiz Complete")
 				.font(.title.bold())
 			
-			Text("\(score) / \(quizzes.count)")
-				.font(.system(size: 44, weight: .bold))
+			VStack(spacing: 4) {
+				Text("\(score) / \(quizzes.count)")
+					.font(.system(size: 64, weight: .bold, design: .rounded))
+				Text("Correct matches")
+					.font(.caption.bold())
+					.foregroundStyle(.secondary)
+					.textCase(.uppercase)
+			}
 			
 			Spacer()
 			
 			Button {
-				dismiss() // This will dismiss the fullScreenCover and return to ContentView
+				dismiss()
 			} label: {
-				
 				Text("Done")
 					.font(.headline)
 					.frame(maxWidth: .infinity)
@@ -179,61 +156,279 @@ private extension QuizSessionView {
 	}
 }
 
-//
-// MARK: Score Helpers
-//
-
+	// MARK: - Score Helpers
 private extension QuizSessionView {
-	
 	var scorePercent: Double {
 		guard quizzes.count > 0 else { return 0 }
 		return Double(score) / Double(quizzes.count)
 	}
 	
 	var scoreIcon: String {
-		
-		if scorePercent == 1.0 {
-			return "star.fill"
-		}
-		
-		if scorePercent >= 0.7 {
-			return "checkmark.circle.fill"
-		}
-		
+		if scorePercent == 1.0 { return "star.fill" }
+		if scorePercent >= 0.7 { return "checkmark.circle.fill" }
 		return "circle"
 	}
 	
 	var scoreColor: Color {
-		
-		if scorePercent == 1.0 {
-			return .yellow
-		}
-		
-		if scorePercent >= 0.7 {
-			return .green
-		}
-		
+		if scorePercent == 1.0 { return .yellow }
+		if scorePercent >= 0.7 { return .green }
 		return .secondary
 	}
 }
 
-//
-// MARK: Load Quiz
-//
-
+	// MARK: - Load Quiz Logic
 private extension QuizSessionView {
-	
 	func loadQuiz() async {
-		
 		loading = true
 		
-		let result = await generator.generateQuizSession(from: objects)
+			// 4. Call the new unified aiService
+		let result = await aiService.generateQuizSession(from: objects)
 		
 		await MainActor.run {
-			
-			quizzes = result
-			score = 0
-			loading = false
+			self.quizzes = result
+			self.score = 0
+			self.loading = false
 		}
 	}
 }
+
+	//	//
+//	//  QuizSessionView.swift
+//	//  LingoLense
+//	//
+//
+//import SwiftUI
+//import Foundation
+//
+//@available(iOS 26.0, *)
+//struct QuizSessionView: View {
+//	
+//	@Environment(\.dismiss) private var dismiss
+//	
+//	let objects: [String]
+//	
+//	@State private var quizzes: [FoundationQuizGenerator.QuizResult] = []
+//	@State private var score: Int = 0
+//	
+//	@State private var loading = true
+//	@State private var showCamera = false
+//	@State private var showCompletion = false
+//	
+//		// 2. Use the unified FoundationAIService
+//	private let aiService = FoundationAIService()
+//	
+//	
+//	var body: some View {
+//		
+//		Group {
+//			
+//			if loading {
+//				loadingView
+//			}
+//			
+//			else if quizzes.isEmpty {
+//				emptyView
+//			}
+//			
+//			else if showCompletion {
+//				completionView
+//			}
+//			
+//			else {
+//				startView
+//			}
+//		}
+//		.task {
+//			await loadQuiz()
+//		}
+//		.fullScreenCover(isPresented: $showCamera) {
+//			
+//			QuizCameraView(quizzes: quizzes) { finalScore in
+//				
+//				score = finalScore
+//				showCompletion = true
+//				showCamera = false
+//			}
+//		}
+//	}
+//}
+//
+////
+//// MARK: Start View
+////
+//
+//private extension QuizSessionView {
+//	
+//	var startView: some View {
+//		
+//		VStack(spacing: 24) {
+//			
+//			Spacer()
+//			
+//			Image(systemName: "camera.viewfinder")
+//				.font(.system(size: 56))
+//				.foregroundColor(.secondary)
+//			
+//			Text("Object Quiz")
+//				.font(.title.bold())
+//			
+//			Text("\(quizzes.count) objects")
+//				.font(.subheadline)
+//				.foregroundColor(.secondary)
+//			
+//			Spacer()
+//			
+//			Button {
+//				showCamera = true
+//			} label: {
+//				
+//				Text("Start")
+//					.font(.headline)
+//					.frame(maxWidth: .infinity)
+//					.padding()
+//					.background(Color.blue)
+//					.foregroundColor(.white)
+//					.cornerRadius(12)
+//			}
+//		}
+//		.padding(24)
+//	}
+//}
+//
+////
+//// MARK: Loading
+////
+//
+//private extension QuizSessionView {
+//	
+//	var loadingView: some View {
+//		
+//		ProgressView("Preparing Quiz")
+//			.frame(maxWidth: .infinity, maxHeight: .infinity)
+//	}
+//}
+//
+////
+//// MARK: Empty
+////
+//
+//private extension QuizSessionView {
+//	
+//	var emptyView: some View {
+//		
+//		VStack(spacing: 12) {
+//			
+//			Image(systemName: "tray")
+//				.font(.system(size: 40))
+//				.foregroundColor(.secondary)
+//			
+//			Text("No quiz available")
+//				.font(.headline)
+//			
+//			Text("Scan objects first")
+//				.font(.subheadline)
+//				.foregroundColor(.secondary)
+//		}
+//		.frame(maxWidth: .infinity, maxHeight: .infinity)
+//	}
+//}
+//
+////
+//// MARK: Completion
+////
+//
+//private extension QuizSessionView {
+//	
+//	var completionView: some View {
+//		
+//		VStack(spacing: 24) {
+//			
+//			Spacer()
+//			
+//			Image(systemName: scoreIcon)
+//				.font(.system(size: 56))
+//				.foregroundColor(scoreColor)
+//			
+//			Text("Quiz Complete")
+//				.font(.title.bold())
+//			
+//			Text("\(score) / \(quizzes.count)")
+//				.font(.system(size: 44, weight: .bold))
+//			
+//			Spacer()
+//			
+//			Button {
+//				dismiss() // This will dismiss the fullScreenCover and return to ContentView
+//			} label: {
+//				
+//				Text("Done")
+//					.font(.headline)
+//					.frame(maxWidth: .infinity)
+//					.padding()
+//					.background(Color.blue)
+//					.foregroundColor(.white)
+//					.cornerRadius(12)
+//			}
+//		}
+//		.padding(24)
+//	}
+//}
+//
+////
+//// MARK: Score Helpers
+////
+//
+//private extension QuizSessionView {
+//	
+//	var scorePercent: Double {
+//		guard quizzes.count > 0 else { return 0 }
+//		return Double(score) / Double(quizzes.count)
+//	}
+//	
+//	var scoreIcon: String {
+//		
+//		if scorePercent == 1.0 {
+//			return "star.fill"
+//		}
+//		
+//		if scorePercent >= 0.7 {
+//			return "checkmark.circle.fill"
+//		}
+//		
+//		return "circle"
+//	}
+//	
+//	var scoreColor: Color {
+//		
+//		if scorePercent == 1.0 {
+//			return .yellow
+//		}
+//		
+//		if scorePercent >= 0.7 {
+//			return .green
+//		}
+//		
+//		return .secondary
+//	}
+//}
+//
+////
+//// MARK: Load Quiz
+////
+//
+//private extension QuizSessionView {
+//	
+//	func loadQuiz() async {
+//		
+//		loading = true
+//		
+//		let result = await generator.generateQuizSession(from: objects)
+//		
+//		await MainActor.run {
+//			
+//			quizzes = result
+//			score = 0
+//			loading = false
+//		}
+//	}
+//}

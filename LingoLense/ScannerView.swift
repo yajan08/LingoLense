@@ -5,12 +5,10 @@ import Vision
 struct ScannerView: View {
 	@StateObject private var cameraService = CameraService()
 	@State private var detector = ObjectDetector()
-	private let objectFilter = FoundationObjectFilter()
 	
 	@State private var navigateToResults = false
-	@State private var finalObjects: [String] = []
+	@State private var rawLabelsToFilter: [String] = []
 	@State private var seenObjects: Set<String> = []
-	@State private var uniquePredictions: [VNClassificationObservation] = []
 	@State private var showHelp = false
 	
 	var body: some View {
@@ -20,13 +18,17 @@ struct ScannerView: View {
 					.ignoresSafeArea()
 				
 				VStack {
-					scanningGuidanceHUD
+						// Top HUD showing active status
+					scanningStatusBadge
 						.padding(.top, 12)
+					
 					Spacer()
+					
+						// Unified Guidance and Action Card
 					bottomActionCard
 				}
 			}
-			.navigationTitle("Scanning")
+			.navigationTitle("Environment Scan")
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbarBackground(.ultraThinMaterial, for: .navigationBar)
 			.toolbarColorScheme(.dark, for: .navigationBar)
@@ -39,7 +41,7 @@ struct ScannerView: View {
 				}
 			}
 			.navigationDestination(isPresented: $navigateToResults) {
-				ResultsView(objects: finalObjects)
+				ResultsView(rawDetectedLabels: rawLabelsToFilter)
 			}
 			.sheet(isPresented: $showHelp) {
 				ScannerInstructionsSheet()
@@ -50,116 +52,71 @@ struct ScannerView: View {
 	}
 }
 
-	// MARK: - Instructions Sheet
-struct ScannerInstructionsSheet: View {
-	@Environment(\.dismiss) var dismiss
-	
-	var body: some View {
-		NavigationStack {
-			List {
-				Section {
-					VStack(alignment: .center, spacing: 16) {
-						Image(systemName: "viewfinder.circle.fill")
-							.font(.system(size: 64))
-							.foregroundStyle(.blue)
-						
-						Text("Build Your Vocabulary")
-							.font(.title2.bold())
-						
-						Text("Move your phone around to discover household items in the target language.")
-							.font(.subheadline)
-							.foregroundStyle(.secondary)
-							.multilineTextAlignment(.center)
-					}
-					.frame(maxWidth: .infinity)
-					.padding(.vertical)
-				}
-				
-				Section("Tips for success") {
-					InstructionRow(
-						icon: "target",
-						color: .blue,
-						title: "Aim for Variety",
-						detail: "Try to scan between 7-10 objects for a comprehensive quiz."
-					)
-					InstructionRow(
-						icon: "sun.max.fill",
-						color: .orange,
-						title: "Check Lighting",
-						detail: "Scan in well-lit areas for better accuracy."
-					)
-					InstructionRow(
-						icon: "hand.raised.fill",
-						color: .purple,
-						title: "Stay Steady",
-						detail: "Hold the camera steady for a second on each item."
-					)
-				}
-				
-				Section("Next Steps") {
-					InstructionRow(
-						icon: "checklist",
-						color: .green,
-						title: "Verify Objects",
-						detail: "After scanning, you'll pick exactly which words you want to practice."
-					)
-				}
-			}
-			.navigationTitle("Scanner Guide")
-			.navigationBarTitleDisplayMode(.inline)
-			.toolbar {
-				ToolbarItem(placement: .confirmationAction) {
-					Button("Got it") { dismiss() }.fontWeight(.bold)
-				}
-			}
-		}
-	}
-}
-
-	// MARK: - UI & Logic (Preserved)
 private extension ScannerView {
-	var scanningGuidanceHUD: some View {
-		HStack(spacing: 12) {
-			ProgressView().tint(.white)
-			VStack(alignment: .leading, spacing: 2) {
-				Text(seenObjects.count < 10 ? "Analyzing Surroundings..." : "Ready to Quiz")
-					.font(.subheadline.bold())
-					.foregroundColor(.white)
-				Text(seenObjects.count < 10 ? "Point your camera at various objects" : "You've found enough objects!")
-					.font(.caption)
-					.foregroundColor(.white.opacity(0.8))
-			}
+	var scanningStatusBadge: some View {
+		HStack(spacing: 8) {
+			Image(systemName: "sparkles")
+				.symbolEffect(.pulse)
+				.foregroundStyle(.yellow)
+			
+			Text("Analyzing Space")
+				.font(.caption.bold())
+				.foregroundColor(.white)
 		}
-		.padding(.horizontal, 16)
-		.padding(.vertical, 10)
+		.padding(.horizontal, 12)
+		.padding(.vertical, 6)
 		.background(.ultraThinMaterial, in: Capsule())
 	}
 	
 	var bottomActionCard: some View {
 		VStack(spacing: 20) {
-			HStack(spacing: 8) {
-				Image(systemName: "cube.box.fill").foregroundColor(.blue)
-				Text("\(seenObjects.count) Objects Detected")
-					.font(.system(.subheadline, design: .rounded).bold())
+				// Enhanced Guidance with Background for Visibility
+			VStack(spacing: 8) {
+				VStack(spacing: 4) {
+					Text(seenObjects.count < 5 ? "Scan multiple objects" : "Great progress!")
+						.font(.subheadline.bold())
+					
+					Text("Capture items from various angles for better accuracy. Tap 'Finish Scanning' when you are ready.")
+						.font(.caption)
+						.foregroundColor(.white.opacity(0.8))
+				}
+				.multilineTextAlignment(.center)
+				.padding(.horizontal, 20)
+				.padding(.vertical, 12)
+				.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
 			}
-			.padding(.horizontal, 16).padding(.vertical, 8)
-			.background(.ultraThinMaterial, in: Capsule())
 			
-			Button(action: stopScanAndFilter) {
+				// Progress Indicators (Dots)
+			HStack(spacing: 6) {
+				ForEach(0..<min(seenObjects.count, 8), id: \.self) { _ in
+					Circle()
+						.fill(.blue.gradient)
+						.frame(width: 6, height: 6)
+				}
+			}
+			.animation(.spring(), value: seenObjects.count)
+			
+				// Primary Action Button
+			Button(action: stopScanAndProceed) {
 				HStack {
-					Text("Finish Scanning")
+					Text(seenObjects.count < 3 ? "Keep Exploring..." : "Finish Scanning")
 						.font(.headline)
-					Image(systemName: "stop.fill")
+					Image(systemName: "arrow.right.circle.fill")
 				}
 				.frame(maxWidth: .infinity)
 				.padding(.vertical, 18)
-				.background(seenObjects.count >= 10 ? Color.blue : Color.red)
+				.background(seenObjects.count < 3 ? .secondary.opacity(0.5) : Color.blue)
 				.foregroundColor(.white)
 				.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 			}
+			.disabled(seenObjects.count < 1)
 			.padding(.horizontal, 24)
 		}
 		.padding(.bottom, 34)
+		.background {
+			LinearGradient(colors: [.clear, .black.opacity(0.4)], startPoint: .top, endPoint: .bottom)
+				.ignoresSafeArea()
+		}
 	}
 	
 	func startDetection() {
@@ -168,26 +125,334 @@ private extension ScannerView {
 				for observation in results {
 					if !seenObjects.contains(observation.identifier) {
 						seenObjects.insert(observation.identifier)
-						uniquePredictions.append(observation)
 						UIImpactFeedbackGenerator(style: .light).impactOccurred()
 					}
 				}
 			}
 		}
-		cameraService.frameHandler = { pixelBuffer in detector.detect(from: pixelBuffer) }
+		cameraService.frameHandler = { buffer in detector.detect(from: buffer) }
 		cameraService.start()
 	}
 	
-	func stopScanAndFilter() {
+	func stopScanAndProceed() {
 		UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 		cameraService.stop()
-		let identifiers = uniquePredictions.map { $0.identifier }
-		Task {
-			let filtered = await objectFilter.filterObjects(from: identifiers)
-			await MainActor.run {
-				finalObjects = filtered
-				navigateToResults = true
+		self.rawLabelsToFilter = Array(seenObjects)
+		self.navigateToResults = true
+	}
+}
+
+	// MARK: - Instructions Sheet
+struct ScannerInstructionsSheet: View {
+	@Environment(\.dismiss) var dismiss
+	
+	var body: some View {
+		NavigationStack {
+			List {
+				Section("Scanning Tips") {
+					InstructionRow(
+						icon: "sun.max.fill",
+						color: .orange,
+						title: "Find the Light",
+						detail: "LingoLens loves sunshine! AI identifies objects best in bright, well-lit environments."
+					)
+					InstructionRow(
+						icon: "camera.viewfinder",
+						color: .blue,
+						title: "Multiple Perspectives",
+						detail: "Move your phone to see the top and sides of objects. This helps the AI verify exactly what it sees."
+					)
+					InstructionRow(
+						icon: "cube.box.fill",
+						color: .purple,
+						title: "Build Your Session",
+						detail: "Aim to scan 5-7 different objects. This ensures a more engaging and effective scavenger hunt later."
+					)
+				}
+				
+				Section("What's Next?") {
+					InstructionRow(
+						icon: "checklist",
+						color: .green,
+						title: "Curate Your List",
+						detail: "Review the detected items and select the ones you want to hunt. You can also manually add items."
+					)
+					InstructionRow(
+						icon: "gamecontroller.fill",
+						color: .red,
+						title: "The Scavenger Hunt",
+						detail: "Once confirmed, the challenge begins! Find those objects again using their names in your target language."
+					)
+				}
+			}
+			.navigationTitle("Scanner Guide")
+			.navigationBarTitleDisplayMode(.inline)
+			.toolbar {
+				ToolbarItem(placement: .cancellationAction) {
+					Button {
+						dismiss()
+					} label: {
+						Image(systemName: "xmark.circle.fill")
+							.symbolRenderingMode(.hierarchical)
+							.foregroundStyle(.secondary)
+							.font(.title3)
+					}
+				}
 			}
 		}
 	}
 }
+
+struct InstructionRow: View {
+	let icon: String
+	let color: Color
+	let title: String
+	let detail: String
+	
+	var body: some View {
+		HStack(spacing: 14) {
+			ZStack {
+				RoundedRectangle(cornerRadius: 12, style: .continuous)
+					.fill(color.opacity(0.15))
+					.frame(width: 42, height: 42)
+				
+				Image(systemName: icon)
+					.font(.system(size: 18, weight: .bold))
+					.foregroundColor(color)
+			}
+			
+			VStack(alignment: .leading, spacing: 2) {
+				Text(title)
+					.font(.system(.subheadline, design: .rounded).bold())
+					.foregroundColor(.primary)
+				
+				Text(detail)
+					.font(.caption)
+					.foregroundColor(.secondary)
+					.lineLimit(3)
+					.fixedSize(horizontal: false, vertical: true)
+			}
+		}
+		.padding(.vertical, 6)
+	}
+}
+
+	//import SwiftUI
+//import Vision
+//
+//@available(iOS 26.0, *)
+//struct ScannerView: View {
+//	@StateObject private var cameraService = CameraService()
+//	@State private var detector = ObjectDetector()
+//	
+//	@State private var navigateToResults = false
+//	@State private var rawLabelsToFilter: [String] = []
+//	@State private var seenObjects: Set<String> = []
+//	@State private var showHelp = false
+//	
+//	var body: some View {
+//		NavigationStack {
+//			ZStack {
+//				CameraPreview(session: cameraService.session)
+//					.ignoresSafeArea()
+//				
+//				VStack {
+//					scanningGuidanceHUD
+//						.padding(.top, 12)
+//					Spacer()
+//					bottomActionCard
+//				}
+//			}
+//			.navigationTitle("Environment Scan")
+//			.navigationBarTitleDisplayMode(.inline)
+//			.toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+//			.toolbarColorScheme(.dark, for: .navigationBar)
+//			.toolbar {
+//				ToolbarItem(placement: .topBarTrailing) {
+//					Button { showHelp = true } label: {
+//						Image(systemName: "questionmark.circle.fill")
+//							.symbolRenderingMode(.hierarchical)
+//					}
+//				}
+//			}
+//			.navigationDestination(isPresented: $navigateToResults) {
+//					// We pass the raw labels; filtering happens inside ResultsView
+//				ResultsView(rawDetectedLabels: rawLabelsToFilter)
+//			}
+//			.sheet(isPresented: $showHelp) {
+//				ScannerInstructionsSheet()
+//			}
+//		}
+//		.onAppear { startDetection() }
+//		.onDisappear { cameraService.stop() }
+//	}
+//}
+//
+//private extension ScannerView {
+//	var scanningGuidanceHUD: some View {
+//		HStack(spacing: 12) {
+//			Image(systemName: "sparkles")
+//				.symbolEffect(.pulse)
+//				.foregroundStyle(.yellow)
+//			
+//			VStack(alignment: .leading, spacing: 2) {
+//				Text("Analyzing Your Space")
+//					.font(.subheadline.bold())
+//					.foregroundColor(.white)
+//				Text("Scan objects from multiple angles. Tap finish scanning when ready.")
+//					.font(.caption)
+//					.foregroundColor(.white.opacity(0.8))
+//			}
+//		}
+//		.padding(.horizontal, 16)
+//		.padding(.vertical, 10)
+//		.background(.ultraThinMaterial, in: Capsule())
+//	}
+//	
+//	var bottomActionCard: some View {
+//		VStack(spacing: 18) {
+//			HStack(spacing: 6) {
+//				ForEach(0..<min(seenObjects.count, 8), id: \.self) { _ in
+//					Circle()
+//						.fill(.blue.gradient)
+//						.frame(width: 6, height: 6)
+//				}
+//			}
+//			.animation(.spring(), value: seenObjects.count)
+//			
+//			Button(action: stopScanAndProceed) {
+//				HStack {
+//					Text(seenObjects.count < 3 ? "Keep Exploring..." : "Finish Scanning")
+//						.font(.headline)
+//					Image(systemName: "arrow.right.circle.fill")
+//				}
+//				.frame(maxWidth: .infinity)
+//				.padding(.vertical, 18)
+//				.background(seenObjects.count < 3 ? .secondary.opacity(0.5) : Color.blue)
+//				.foregroundColor(.white)
+//				.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+//			}
+//			.disabled(seenObjects.count < 1)
+//			.padding(.horizontal, 24)
+//		}
+//		.padding(.bottom, 34)
+//	}
+//	
+//	func startDetection() {
+//		detector.onPredictions = { results in
+//			DispatchQueue.main.async {
+//				for observation in results {
+//					if !seenObjects.contains(observation.identifier) {
+//						seenObjects.insert(observation.identifier)
+//						UIImpactFeedbackGenerator(style: .light).impactOccurred()
+//					}
+//				}
+//			}
+//		}
+//		cameraService.frameHandler = { buffer in detector.detect(from: buffer) }
+//		cameraService.start()
+//	}
+//	
+//	func stopScanAndProceed() {
+//		UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+//		cameraService.stop()
+//		self.rawLabelsToFilter = Array(seenObjects)
+//		self.navigateToResults = true
+//	}
+//}
+//
+//	// MARK: - Instructions Sheet
+//struct ScannerInstructionsSheet: View {
+//	@Environment(\.dismiss) var dismiss
+//	
+//	var body: some View {
+//		NavigationStack {
+//			List {
+//				Section("Scanning Tips") {
+//					InstructionRow(
+//						icon: "sun.max.fill",
+//						color: .orange,
+//						title: "Find the Light",
+//						detail: "LingoLens loves sunshine! AI identifies objects best in bright, clear rooms."
+//					)
+//					InstructionRow(
+//						icon: "camera.viewfinder",
+//						color: .blue,
+//						title: "Get Multiple Perspectives",
+//						detail: "Move your phone to see the top and sides. It helps me verify what the object is."
+//					)
+//					InstructionRow(
+//						icon: "hand.tap.fill",
+//						color: .purple,
+//						title: "Steady Capture",
+//						detail: "Pause for a second when you see the haptic 'click' to let the scanner lock on."
+//					)
+//				}
+//				
+//				Section("What's Next?") {
+//					InstructionRow(
+//						icon: "checklist",
+//						color: .green,
+//						title: "Curate Your List",
+//						detail: "Review the items and pick the ones you want to hunt. You can also manually add any objects we missed!"
+//					)
+//					InstructionRow(
+//						icon: "gamecontroller.fill",
+//						color: .red,
+//						title: "The Scavenger Hunt",
+//						detail: "Once you pick your words, the challenge begins. Can you find them all in the real world?"
+//					)
+//				}
+//			}
+//			.navigationTitle("Scanner Guide")
+//			.navigationBarTitleDisplayMode(.inline)
+//			.toolbar {
+//				ToolbarItem(placement: .cancellationAction) {
+//					Button {
+//						dismiss()
+//					} label: {
+//						Image(systemName: "xmark.circle.fill")
+//							.symbolRenderingMode(.hierarchical)
+//							.foregroundStyle(.secondary)
+//							.font(.title3)
+//					}
+//				}
+//			}
+//		}
+//	}
+//}
+//
+//
+//struct InstructionRow: View {
+//	let icon: String
+//	let color: Color
+//	let title: String
+//	let detail: String
+//	
+//	var body: some View {
+//		HStack(spacing: 14) {
+//			ZStack {
+//				RoundedRectangle(cornerRadius: 12, style: .continuous)
+//					.fill(color.opacity(0.15))
+//					.frame(width: 42, height: 42)
+//				
+//				Image(systemName: icon)
+//					.font(.system(size: 18, weight: .bold))
+//					.foregroundColor(color)
+//			}
+//			
+//			VStack(alignment: .leading, spacing: 2) {
+//				Text(title)
+//					.font(.system(.subheadline, design: .rounded).bold())
+//					.foregroundColor(.primary)
+//				
+//				Text(detail)
+//					.font(.caption)
+//					.foregroundColor(.secondary)
+//					.lineLimit(2)
+//					.fixedSize(horizontal: false, vertical: true)
+//			}
+//		}
+//		.padding(.vertical, 6) // Reduced from 20 to make it tight and professional
+//	}
+//}
