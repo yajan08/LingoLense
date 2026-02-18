@@ -7,7 +7,7 @@ final class ObjectDetector {
 	private var classificationRequest: VNClassifyImageRequest!
 	
 	private var lastDetectionTime = Date.distantPast
-	private let detectionInterval: TimeInterval = 0.15
+	private let detectionInterval: TimeInterval = 0.33
 	
 	var onPredictions: (([VNClassificationObservation]) -> Void)?
 	
@@ -46,12 +46,21 @@ final class ObjectDetector {
 		
 		let orientation = exifOrientationFromDeviceOrientation()
 		
-		let handler = VNImageRequestHandler(
-			cvPixelBuffer: pixelBuffer,
-			orientation: orientation
-		)
-		
-		try? handler.perform([classificationRequest])
+		DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+			
+			guard let self else { return }
+			
+			let handler = VNImageRequestHandler(
+				cvPixelBuffer: pixelBuffer,
+				orientation: orientation
+			)
+			
+			do {
+				try handler.perform([self.classificationRequest])
+			} catch {
+				print("Vision perform failed:", error)
+			}
+		}
 	}
 	
 	private func handleClassifications(_ results: [VNClassificationObservation]) {

@@ -293,10 +293,12 @@ struct QuickScanInstructionsSheet: View {
 			.navigationTitle("Quick Scan Guide")
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
-				Button {
-					dismiss()
-				} label : {
-					Image(systemName: "xmark")
+				ToolbarItem(placement: .cancellationAction) {
+					Button {
+						dismiss()
+					} label: {
+						Image(systemName: "xmark")
+					}
 				}
 			}
 		}

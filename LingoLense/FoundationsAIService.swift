@@ -7,7 +7,7 @@ import Combine
 @available(iOS 26.0, *)
 final class FoundationAIService: ObservableObject {
 	
-	private let model = SystemLanguageModel.default
+	private lazy var model = SystemLanguageModel.default
 	
 	@AppStorage("selected_language")
 	private var selectedLanguageRaw = AppLanguage.french.rawValue
@@ -69,23 +69,43 @@ final class FoundationAIService: ObservableObject {
 	}
 	
 		// MARK: - Quiz Generation (FoundationQuizGenerator Logic)
-	
 	func generateQuizSession(from objects: [String]) async -> [QuizResult] {
-		guard model.isAvailable else {
-			print("❌ Model unavailable")
-			return []
-		}
 		
-		var results: [QuizResult] = []
-		
-		for object in objects {
-			if let quiz = await translate(object) {
-				results.append(quiz)
+		await withTaskGroup(of: QuizResult?.self) { group in
+			
+			for object in objects {
+				group.addTask {
+					await self.translate(object)
+				}
 			}
+			
+			var results: [QuizResult] = []
+			
+			for await result in group {
+				if let result {
+					results.append(result)
+				}
+			}
+			
+			return results.shuffled()
 		}
-		
-		return results.shuffled()
 	}
+//	func generateQuizSession(from objects: [String]) async -> [QuizResult] {
+//		guard model.isAvailable else {
+//			print("❌ Model unavailable")
+//			return []
+//		}
+//		
+//		var results: [QuizResult] = []
+//		
+//		for object in objects {
+//			if let quiz = await translate(object) {
+//				results.append(quiz)
+//			}
+//		}
+//		
+//		return results.shuffled()
+//	}
 	
 		// MARK: - Translation Logic
 	

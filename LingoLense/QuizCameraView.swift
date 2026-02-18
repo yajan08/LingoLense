@@ -376,7 +376,7 @@ struct InstructionsSheet: View {
 			.navigationTitle("Scavenger Guide")
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
-				ToolbarItem(placement: .confirmationAction) {
+				ToolbarItem(placement: .cancellationAction) {
 					Button {
 						dismiss()
 					} label : {

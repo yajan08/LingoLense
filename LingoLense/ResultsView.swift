@@ -71,7 +71,7 @@ struct ResultsView: View {
 				Button {
 					showHelp = true
 				} label: {
-					Image(systemName: "info") // ✅ native iOS info icon
+					Image(systemName: "questionmark") // ✅ native iOS info icon
 						.symbolRenderingMode(.hierarchical)
 						.font(.title3)
 				}
@@ -79,8 +79,13 @@ struct ResultsView: View {
 			}
 		}
 		.navigationDestination(isPresented: $navigateToQuiz) {
-			QuizSessionView(objects: Array(selectedObjects))
+			QuizSessionView(objects: selectedObjects.sorted())
+				.id(selectedObjects)
 		}
+//		.navigationDestination(isPresented: $navigateToQuiz) {
+//			QuizSessionView(objects: Array(selectedObjects))
+//				.id(selectedObjects) // ← CRITICAL FIX
+//		}
 		.sheet(isPresented: $showHelp) {
 			ResultsInstructionsSheet()
 		}
@@ -349,7 +354,7 @@ struct ResultsInstructionsSheet: View {
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 				
-				ToolbarItem(placement: .confirmationAction) {
+				ToolbarItem(placement: .cancellationAction) {
 					
 					Button {
 						dismiss()

@@ -34,7 +34,7 @@ struct QuizSessionView: View {
 				startView
 			}
 		}
-		.task {
+		.task(id: objects) {
 			await loadQuiz()
 		}
 		.fullScreenCover(isPresented: $showCamera) {

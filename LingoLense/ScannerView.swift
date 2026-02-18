@@ -193,9 +193,6 @@ struct ScannerInstructionsSheet: View {
 						dismiss()
 					} label: {
 						Image(systemName: "xmark")
-//							.symbolRenderingMode(.hierarchical)
-//							.foregroundStyle(.secondary)
-//							.font(.title3)
 					}
 				}
 			}

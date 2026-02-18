@@ -197,10 +197,10 @@ private extension ContentView {
 			}
 			
 			VStack(spacing: 4) {
-				Text("Your privacy is our priority.")
+				Text("Your Privacy, Our Priority.")
 					.font(.system(.subheadline, design: .rounded).bold())
 				
-				Text("LingoLens uses secure on-device intelligence to recognize your surroundings. No image data ever leaves this device.")
+				Text("LingoLens uses secure on-device intelligence to recognize your surroundings and translate the words. No data ever leaves your device.")
 					.font(.caption)
 					.foregroundColor(.secondary)
 					.multilineTextAlignment(.center)
@@ -247,7 +247,6 @@ struct LingoInfoSheet: View {
 								.padding(.horizontal, 16)
 						}
 					}
-					.padding(.top, 20)
 					
 						// Instruction List
 					VStack(spacing: 0) {
@@ -298,7 +297,7 @@ struct LingoInfoSheet: View {
 					.background(Color(.secondarySystemGroupedBackground))
 					.clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
 				}
-				.padding(24)
+				.padding(.horizontal, 20)
 			}
 			.background(Color(.systemGroupedBackground))
 			.navigationBarTitleDisplayMode(.inline)
