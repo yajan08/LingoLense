@@ -178,16 +178,58 @@ private extension QuizSessionView {
 
 	// MARK: - Load Quiz Logic
 private extension QuizSessionView {
+
 	func loadQuiz() async {
+		
 		loading = true
 		
-			// 4. Call the new unified aiService
-		let result = await aiService.generateQuizSession(from: objects)
+			// Clean objects
+		let cleanObjects = objects
+			.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+			.filter { !$0.isEmpty }
+		
+			// Get AI results
+		let aiResults = await aiService.generateQuizSession(from: cleanObjects)
+		
+			// Build lookup of English words already present
+		let existingEnglish = Set(
+			aiResults.map { $0.correctEnglish.lowercased() }
+		)
+		
+		var finalQuiz = aiResults
+		
+			// Add fallback entries for missing objects
+		for object in cleanObjects {
+			
+			if !existingEnglish.contains(object.lowercased()) {
+				
+				finalQuiz.append(
+					FoundationAIService.QuizResult(
+						translatedWord: object,      // fallback uses same word
+						correctEnglish: object
+					)
+				)
+			}
+		}
 		
 		await MainActor.run {
-			self.quizzes = result
+			
+			self.quizzes = finalQuiz.shuffled()
 			self.score = 0
 			self.loading = false
 		}
 	}
+	
+		//	func loadQuiz() async {
+//		loading = true
+//		
+//			// 4. Call the new unified aiService
+//		let result = await aiService.generateQuizSession(from: objects)
+//		
+//		await MainActor.run {
+//			self.quizzes = result
+//			self.score = 0
+//			self.loading = false
+//		}
+//	}
 }

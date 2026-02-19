@@ -18,7 +18,7 @@ struct ResultsView: View {
 		// MARK: - State
 	
 	@State private var filteredObjects: [String] = []
-	@State private var manualObjects: [String] = []   // ✅ manual objects tracked separately
+	@State private var manualObjects: [String] = []
 	@State private var selectedObjects: Set<String> = []
 	@State private var isFiltering = true
 	@State private var navigateToQuiz = false
@@ -29,6 +29,12 @@ struct ResultsView: View {
 		/// Combined list with manual objects FIRST (instant priority)
 	private var allObjects: [String] {
 		manualObjects + filteredObjects.filter { !manualObjects.contains($0) }
+	}
+	
+		// FIX 1: canStart now correctly derives from allObjects + selectedObjects,
+		// not just selectedObjects — handles the manual-only case properly.
+	private var canStart: Bool {
+		!isFiltering && !selectedObjects.isEmpty
 	}
 	
 	
@@ -71,21 +77,19 @@ struct ResultsView: View {
 				Button {
 					showHelp = true
 				} label: {
-					Image(systemName: "questionmark") // ✅ native iOS info icon
+					Image(systemName: "questionmark")
 						.symbolRenderingMode(.hierarchical)
 						.font(.title3)
 				}
-				.buttonStyle(.borderless) // ✅ native feel
+				.buttonStyle(.borderless)
 			}
 		}
 		.navigationDestination(isPresented: $navigateToQuiz) {
-			QuizSessionView(objects: selectedObjects.sorted())
+				// FIX 2: Snapshot selectedObjects at navigation time so the quiz
+				// always receives the correct set, even if state mutates after.
+			QuizSessionView(objects: Array(selectedObjects).sorted())
 				.id(selectedObjects)
 		}
-//		.navigationDestination(isPresented: $navigateToQuiz) {
-//			QuizSessionView(objects: Array(selectedObjects))
-//				.id(selectedObjects) // ← CRITICAL FIX
-//		}
 		.sheet(isPresented: $showHelp) {
 			ResultsInstructionsSheet()
 		}
@@ -149,7 +153,6 @@ private extension ResultsView {
 			HStack {
 				Image(systemName: "plus.circle.fill")
 					.foregroundColor(.blue)
-					// Subtle "hop" when text is first entered (iOS 17+)
 					.symbolEffect(.bounce, value: !newObjectText.isEmpty)
 				
 				TextField("Add object manually...", text: $newObjectText)
@@ -162,8 +165,12 @@ private extension ResultsView {
 				Color(.tertiarySystemBackground),
 				in: RoundedRectangle(cornerRadius: 14)
 			)
+				// FIX 3: Only set focus if not already focused — eliminates the
+				// first-tap delay caused by redundant focus state toggling.
 			.onTapGesture {
-				isTextFieldFocused = true
+				if !isTextFieldFocused {
+					isTextFieldFocused = true
+				}
 			}
 			
 				// Animated "Add" Button
@@ -172,11 +179,9 @@ private extension ResultsView {
 					addManualObjectInstant()
 				}
 				.fontWeight(.bold)
-					// The transition defines HOW it enters/leaves
 				.transition(.move(edge: .trailing).combined(with: .opacity))
 			}
 		}
-			// The animation defines the SPEED and FEEL of the transition
 		.animation(.spring(response: 0.35, dampingFraction: 0.8), value: newObjectText.isEmpty)
 	}
 	
@@ -185,9 +190,7 @@ private extension ResultsView {
 		let isSelected = selectedObjects.contains(object)
 		
 		return Button {
-			
 			toggle(object)
-			
 		} label: {
 			
 			HStack(spacing: 16) {
@@ -214,7 +217,6 @@ private extension ResultsView {
 	var startButton: some View {
 		
 		Button {
-			
 			UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 			navigateToQuiz = true
 			
@@ -224,11 +226,13 @@ private extension ResultsView {
 				.font(.headline)
 				.frame(maxWidth: .infinity)
 				.padding(.vertical, 18)
-				.background(selectedObjects.isEmpty || isFiltering ? Color.gray : Color.blue)
+				// FIX 4: Use canStart computed property consistently
+				// in both background and disabled modifier.
+				.background(canStart ? Color.blue : Color.gray)
 				.foregroundColor(.white)
 				.clipShape(Capsule())
 		}
-		.disabled(selectedObjects.isEmpty || isFiltering)
+		.disabled(!canStart)
 		.padding()
 		.background(.ultraThinMaterial)
 	}
@@ -265,7 +269,6 @@ private extension ResultsView {
 
 private extension ResultsView {
 	
-	
 	func performFiltering() {
 		
 		guard !rawDetectedLabels.isEmpty else {
@@ -284,7 +287,10 @@ private extension ResultsView {
 					.filter { !$0.isEmpty }
 				
 				filteredObjects = sanitized
-				selectedObjects = Set(sanitized)
+					// FIX 5: Only auto-select filtered objects that aren't already
+					// manually added, preserving any manual selections made during load.
+				let newSelections = Set(sanitized).subtracting(manualObjects)
+				selectedObjects = selectedObjects.union(newSelections)
 				isFiltering = false
 			}
 		}
@@ -300,16 +306,18 @@ private extension ResultsView {
 		
 		guard !text.isEmpty else { return }
 		
+			// FIX 6: Dismiss keyboard AFTER capturing text, not before,
+			// to prevent the text field from clearing before we read it.
+		let captured = text
+		newObjectText = ""
 		isTextFieldFocused = false
 		
-			// instant insertion at top
-		if !manualObjects.contains(text) {
-			manualObjects.insert(text, at: 0)
+		if !manualObjects.contains(captured) {
+			manualObjects.insert(captured, at: 0)
 		}
 		
-		selectedObjects.insert(text)
-		
-		newObjectText = ""
+			// Always ensure manual objects are selected when added.
+		selectedObjects.insert(captured)
 		
 		UIImpactFeedbackGenerator(style: .light).impactOccurred()
 	}
@@ -358,7 +366,7 @@ struct ResultsInstructionsSheet: View {
 					
 					Button {
 						dismiss()
-					} label : {
+					} label: {
 						Image(systemName: "xmark")
 					}
 				}
@@ -366,3 +374,373 @@ struct ResultsInstructionsSheet: View {
 		}
 	}
 }
+
+
+	//import SwiftUI
+//
+//	/// The landing page for LingoLens, designed for the Swift Student Challenge.
+//	/// Uses native navigation patterns and a modern floating action button.
+//@available(iOS 26.0, *)
+//struct ResultsView: View {
+//	
+//		// MARK: - Properties
+//	
+//		/// Raw labels passed instantly from the ScannerView to avoid camera-to-result lag.
+//	let rawDetectedLabels: [String]
+//	private let aiService = FoundationAIService()
+//	
+//	@Environment(\.dismiss) private var dismiss
+//	
+//	@FocusState private var isTextFieldFocused: Bool
+//	
+//		// MARK: - State
+//	
+//	@State private var filteredObjects: [String] = []
+//	@State private var manualObjects: [String] = []   // ✅ manual objects tracked separately
+//	@State private var selectedObjects: Set<String> = []
+//	@State private var isFiltering = true
+//	@State private var navigateToQuiz = false
+//	@State private var newObjectText: String = ""
+//	@State private var showHelp = false
+//	
+//	
+//		/// Combined list with manual objects FIRST (instant priority)
+//	private var allObjects: [String] {
+//		manualObjects + filteredObjects.filter { !manualObjects.contains($0) }
+//	}
+//	
+//	
+//		// MARK: - Body
+//	
+//	var body: some View {
+//		VStack(spacing: 0) {
+//			
+//			header
+//			
+//			ScrollView {
+//				LazyVStack(spacing: 12) {
+//					
+//					addObjectRow
+//						.padding(.bottom, 8)
+//					
+//					if isFiltering {
+//						loadingShimmer
+//					}
+//					else if allObjects.isEmpty {
+//						emptyStateContent
+//					}
+//					else {
+//						ForEach(allObjects, id: \.self) { object in
+//							selectableRow(object)
+//						}
+//					}
+//				}
+//				.padding()
+//			}
+//			
+//			startButton
+//		}
+//		.navigationTitle("Review Items")
+//		.navigationBarTitleDisplayMode(.inline)
+//		.toolbar {
+//			
+//			ToolbarItem(placement: .topBarTrailing) {
+//				
+//				Button {
+//					showHelp = true
+//				} label: {
+//					Image(systemName: "questionmark") // ✅ native iOS info icon
+//						.symbolRenderingMode(.hierarchical)
+//						.font(.title3)
+//				}
+//				.buttonStyle(.borderless) // ✅ native feel
+//			}
+//		}
+//		.navigationDestination(isPresented: $navigateToQuiz) {
+//			QuizSessionView(objects: selectedObjects.sorted())
+//				.id(selectedObjects)
+//		}
+////		.navigationDestination(isPresented: $navigateToQuiz) {
+////			QuizSessionView(objects: Array(selectedObjects))
+////				.id(selectedObjects) // ← CRITICAL FIX
+////		}
+//		.sheet(isPresented: $showHelp) {
+//			ResultsInstructionsSheet()
+//		}
+//		.onAppear {
+//			performFiltering()
+//		}
+//	}
+//}
+//
+//	//
+//	// MARK: - UI Components
+//	//
+//
+//private extension ResultsView {
+//	
+//	var header: some View {
+//		VStack(alignment: .leading, spacing: 6) {
+//			
+//			Text("Review Detected Items")
+//				.font(.system(.largeTitle, design: .rounded).bold())
+//			
+//			Text("Confirm or add objects you want to include in your scavenger hunt.")
+//				.font(.subheadline)
+//				.foregroundColor(.secondary)
+//		}
+//		.frame(maxWidth: .infinity, alignment: .leading)
+//		.padding()
+//	}
+//	
+//	
+//	var loadingShimmer: some View {
+//		VStack(spacing: 12) {
+//			ForEach(0..<6, id: \.self) { _ in
+//				
+//				RoundedRectangle(cornerRadius: 14)
+//					.fill(Color.gray.opacity(0.15))
+//					.frame(height: 60)
+//					.overlay(
+//						HStack {
+//							Circle()
+//								.fill(Color.gray.opacity(0.2))
+//								.frame(width: 24)
+//							
+//							Rectangle()
+//								.fill(Color.gray.opacity(0.2))
+//								.frame(width: 120, height: 12)
+//							
+//							Spacer()
+//						}
+//							.padding(.horizontal)
+//					)
+//			}
+//		}
+//		.opacity(0.6)
+//	}
+//	
+//	var addObjectRow: some View {
+//		HStack(spacing: 12) {
+//			
+//				// Main Input Field
+//			HStack {
+//				Image(systemName: "plus.circle.fill")
+//					.foregroundColor(.blue)
+//					// Subtle "hop" when text is first entered (iOS 17+)
+//					.symbolEffect(.bounce, value: !newObjectText.isEmpty)
+//				
+//				TextField("Add object manually...", text: $newObjectText)
+//					.submitLabel(.done)
+//					.focused($isTextFieldFocused)
+//					.onSubmit { addManualObjectInstant() }
+//			}
+//			.padding()
+//			.background(
+//				Color(.tertiarySystemBackground),
+//				in: RoundedRectangle(cornerRadius: 14)
+//			)
+//			.onTapGesture {
+//				isTextFieldFocused = true
+//			}
+//			
+//				// Animated "Add" Button
+//			if !newObjectText.isEmpty {
+//				Button("Add") {
+//					addManualObjectInstant()
+//				}
+//				.fontWeight(.bold)
+//					// The transition defines HOW it enters/leaves
+//				.transition(.move(edge: .trailing).combined(with: .opacity))
+//			}
+//		}
+//			// The animation defines the SPEED and FEEL of the transition
+//		.animation(.spring(response: 0.35, dampingFraction: 0.8), value: newObjectText.isEmpty)
+//	}
+//	
+//	func selectableRow(_ object: String) -> some View {
+//		
+//		let isSelected = selectedObjects.contains(object)
+//		
+//		return Button {
+//			
+//			toggle(object)
+//			
+//		} label: {
+//			
+//			HStack(spacing: 16) {
+//				
+//				Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+//					.font(.title2)
+//					.foregroundColor(isSelected ? .green : .secondary)
+//				
+//				Text(object.capitalized)
+//					.font(.body.weight(.medium))
+//				
+//				Spacer()
+//			}
+//			.padding()
+//			.background(
+//				Color(.secondarySystemBackground),
+//				in: RoundedRectangle(cornerRadius: 14)
+//			)
+//		}
+//		.buttonStyle(.plain)
+//	}
+//	
+//	
+//	var startButton: some View {
+//		
+//		Button {
+//			
+//			UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+//			navigateToQuiz = true
+//			
+//		} label: {
+//			
+//			Text("Start Scavenger Hunt")
+//				.font(.headline)
+//				.frame(maxWidth: .infinity)
+//				.padding(.vertical, 18)
+//				.background(selectedObjects.isEmpty || isFiltering ? Color.gray : Color.blue)
+//				.foregroundColor(.white)
+//				.clipShape(Capsule())
+//		}
+//		.disabled(selectedObjects.isEmpty || isFiltering)
+//		.padding()
+//		.background(.ultraThinMaterial)
+//	}
+//	
+//	
+//	var emptyStateContent: some View {
+//		
+//		VStack(spacing: 16) {
+//			
+//			Image(systemName: "viewfinder.circle")
+//				.font(.system(size: 60))
+//				.foregroundColor(.secondary)
+//				.padding(.top, 40)
+//			
+//			Text("No objects yet")
+//				.font(.headline)
+//			
+//			Text("Scan again or add objects manually.")
+//				.font(.subheadline)
+//				.foregroundColor(.secondary)
+//			
+//			Button("Go Back") {
+//				dismiss()
+//			}
+//			.font(.headline)
+//			.padding(.top, 10)
+//		}
+//	}
+//}
+//
+//	//
+//	// MARK: - Logic
+//	//
+//
+//private extension ResultsView {
+//	
+//	
+//	func performFiltering() {
+//		
+//		guard !rawDetectedLabels.isEmpty else {
+//			isFiltering = false
+//			return
+//		}
+//		
+//		Task(priority: .userInitiated) {
+//			
+//			let cleaned = await aiService.filterObjects(from: rawDetectedLabels)
+//			
+//			await MainActor.run {
+//				
+//				let sanitized = cleaned
+//					.map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
+//					.filter { !$0.isEmpty }
+//				
+//				filteredObjects = sanitized
+//				selectedObjects = Set(sanitized)
+//				isFiltering = false
+//			}
+//		}
+//	}
+//	
+//	
+//		/// ZERO latency manual add — instant state update
+//	func addManualObjectInstant() {
+//		
+//		let text = newObjectText
+//			.trimmingCharacters(in: .whitespacesAndNewlines)
+//			.lowercased()
+//		
+//		guard !text.isEmpty else { return }
+//		
+//		isTextFieldFocused = false
+//		
+//			// instant insertion at top
+//		if !manualObjects.contains(text) {
+//			manualObjects.insert(text, at: 0)
+//		}
+//		
+//		selectedObjects.insert(text)
+//		
+//		newObjectText = ""
+//		
+//		UIImpactFeedbackGenerator(style: .light).impactOccurred()
+//	}
+//	
+//	
+//	func toggle(_ object: String) {
+//		
+//		UIImpactFeedbackGenerator(style: .light).impactOccurred()
+//		
+//		if selectedObjects.contains(object) {
+//			selectedObjects.remove(object)
+//		} else {
+//			selectedObjects.insert(object)
+//		}
+//	}
+//}
+//
+//	//
+//	// MARK: - Instructions Sheet
+//	//
+//
+//struct ResultsInstructionsSheet: View {
+//	
+//	@Environment(\.dismiss) private var dismiss
+//	
+//	var body: some View {
+//		
+//		NavigationStack {
+//			
+//			List {
+//				
+//				Section("Review your objects") {
+//					
+//					Label("Tap items to include or exclude them.", systemImage: "checkmark.circle")
+//					
+//					Label("Add missing objects that were not detected manually.", systemImage: "plus.circle")
+//					
+//					Label("Only selected items will appear in your scavenger hunt.", systemImage: "target")
+//				}
+//			}
+//			.navigationTitle("About Reviewing")
+//			.navigationBarTitleDisplayMode(.inline)
+//			.toolbar {
+//				
+//				ToolbarItem(placement: .cancellationAction) {
+//					
+//					Button {
+//						dismiss()
+//					} label : {
+//						Image(systemName: "xmark")
+//					}
+//				}
+//			}
+//		}
+//	}
+//}

@@ -105,7 +105,7 @@ private extension ContentView {
 					icon: "sparkles",
 					color: .blue,
 					title: "Quick Scan",
-					text: "Instant, real-time object labeling.",
+					text: "Scan an object and get its \(selectedLanguage.displayName) translation instantly.",
 					action: { activeInfoType = .quickScan }
 				)
 				
@@ -115,7 +115,7 @@ private extension ContentView {
 					icon: "map.fill",
 					color: .orange,
 					title: "Scavenger Hunt",
-					text: "Interactive recall & search missions.",
+					text: "Scan a bunch of objects then hunt them using their \(selectedLanguage.displayName) names.",
 					action: { activeInfoType = .scavengerHunt }
 				)
 			}
@@ -207,7 +207,7 @@ private extension ContentView {
 					.padding(.horizontal, 20)
 			}
 		}
-		.padding(.top, 24)
+		.padding(.top, 10)
 		.padding(.bottom, 12)
 	}
 }
